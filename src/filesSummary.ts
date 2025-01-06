@@ -232,7 +232,6 @@ export async function getSummaryBetweenDates(
     // openai.completions
     const completion = await openai.chat.completions.create({
       model: MODEL_NAME,
-      // prompt: `${SHARED_PROMPT}\n\n${inputForAI}`,
       messages: [
         { role: "system", content: OPEN_AI_PROMPT },
         { role: "user", content: `${SHARED_PROMPT}\n\n${inputForAI}` }],

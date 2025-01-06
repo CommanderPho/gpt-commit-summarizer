@@ -3,8 +3,8 @@ import { summarizeCommits } from "./commitSummary";
 import { getFilesSummaries, getSummaryBetweenDates } from "./filesSummary";
 
 async function run(): Promise<void> {
-  const core = require('@actions/core');
-  const { execSync } = require('child_process');
+  // const core = require('@actions/core');
+  // const { execSync } = require('child_process');
 
 
   // // Get the pull request number and repository owner and name from the context object
