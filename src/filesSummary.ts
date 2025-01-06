@@ -1,17 +1,11 @@
 import type { PayloadRepository } from "@actions/github/lib/interfaces";
 
 import { octokit } from "./octokit";
-import {
-  MAX_OPEN_AI_QUERY_LENGTH,
-  MAX_TOKENS,
-  MODEL_NAME,
-  openai,
-  TEMPERATURE,
-} from "./openAi";
+import { MAX_OPEN_AI_QUERY_LENGTH, MAX_TOKENS, MODEL_NAME, openai, TEMPERATURE } from "./openAi";
 import { SHARED_PROMPT } from "./sharedPrompt";
 
 const linkRegex =
-  /\[(?:[a-f0-9]{6}|None)\]\(https:\/\/github\.com\/.*?#([a-f0-9]{40}|None)\)/;
+  /\[(?:[a-f0-9]{6}|None)]\(https:\/\/github\.com\/.*?#([a-f0-9]{40}|None)\)/;
 
 export function preprocessCommitMessage(commitMessage: string): string {
   let match = commitMessage.match(linkRegex);
@@ -37,25 +31,25 @@ async function getOpenAISummaryForFile(
   patch: string
 ): Promise<string> {
   try {
-    const openAIPrompt = `${OPEN_AI_PROMPT}\n\nTHE GIT DIFF OF ${filename} TO BE SUMMARIZED:\n\`\`\`\n${patch}\n\`\`\`\n\nSUMMARY:\n`;
+    const openAIPrompt = `THE GIT DIFF OF ${filename} TO BE SUMMARIZED:\n\`\`\`\n${patch}\n\`\`\`\n\nSUMMARY:\n`;
     console.log(`OpenAI file summary prompt for ${filename}:\n${openAIPrompt}`);
 
     if (openAIPrompt.length > MAX_OPEN_AI_QUERY_LENGTH) {
+      // noinspection ExceptionCaughtLocallyJS
       throw new Error("OpenAI query too big");
     }
 
-    const response = await openai.createCompletion({
+    const completion = await openai.chat.completions.create({
       model: MODEL_NAME,
-      prompt: openAIPrompt,
+      messages: [
+        { role: "system", content: OPEN_AI_PROMPT },
+        { role: "user", content: openAIPrompt }],
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
     });
-    if (
-      response.data.choices !== undefined &&
-      response.data.choices.length > 0
-    ) {
+    if (completion.choices !== undefined && completion.choices.length > 0) {
       return (
-        response.data.choices[0].text ?? "Error: couldn't generate summary"
+        completion.choices[0].message.content ?? "Error: couldn't generate summary"
       );
     }
   } catch (error) {
@@ -158,8 +152,7 @@ export async function getFilesSummaries(
     const expectedComment = `GPT summary of ${modifiedFiles[modifiedFile].originSha} - ${modifiedFiles[modifiedFile].sha}:`;
     for (const reviewSummary of existingReviewSummaries) {
       if (reviewSummary[0].includes(expectedComment)) {
-        const summary = reviewSummary[0].split("\n").slice(1).join("\n");
-        result[modifiedFile] = summary;
+        result[modifiedFile] = reviewSummary[0].split("\n").slice(1).join("\n");
         isFileAlreadySummarized = true;
         break;
       }

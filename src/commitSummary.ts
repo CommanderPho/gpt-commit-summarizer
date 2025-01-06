@@ -1,12 +1,6 @@
 import type { gitDiffMetadata } from "./DiffMetadata";
 import { octokit } from "./octokit";
-import {
-  MAX_OPEN_AI_QUERY_LENGTH,
-  MAX_TOKENS,
-  MODEL_NAME,
-  openai,
-  TEMPERATURE,
-} from "./openAi";
+import { MAX_OPEN_AI_QUERY_LENGTH, MAX_TOKENS, MODEL_NAME, openai, TEMPERATURE } from "./openAi";
 import { SHARED_PROMPT } from "./sharedPrompt";
 import { summarizePr } from "./summarizePr";
 
@@ -28,7 +22,7 @@ Readability is top priority. Write only the most important comments about the di
 EXAMPLE SUMMARY COMMENTS:
 \`\`\`
 * Raised the amount of returned recordings from \`10\` to \`100\` [packages/server/recordings_api.ts], [packages/server/constants.ts]
-* Fixed a typo in the github action name [.github/workflows/gpt-commit-summarizer.yml]
+* Fixed a typo in the github action name [.github/workflows/ai-commit-summary.yml]
 * Moved the \`octokit\` initialization to a separate file [src/octokit.ts], [src/index.ts]
 * Added an OpenAI API for completions [packages/utils/apis/openai.ts]
 * Lowered numeric tolerance for test files
@@ -84,30 +78,31 @@ async function getOpenAICompletion(
       .map((file: any) => formatGitDiff(file.filename, file.patch))
       .join("\n");
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    const openAIPrompt = `${OPEN_AI_PRIMING}\n\nTHE GIT DIFF TO BE SUMMARIZED:\n\`\`\`\n${rawGitDiff}\n\`\`\`\n\nTHE SUMMERY:\n`;
+    const openAIPrompt = `THE GIT DIFF TO BE SUMMARIZED:\n\`\`\`\n${rawGitDiff}\n\`\`\`\n\nTHE SUMMERY:\n`;
 
     console.log(
       `OpenAI prompt for commit ${diffMetadata.commit.data.sha}: ${openAIPrompt}`
     );
 
     if (openAIPrompt.length > MAX_OPEN_AI_QUERY_LENGTH) {
+      // noinspection ExceptionCaughtLocallyJS
       throw new Error("OpenAI query too big");
     }
 
-    const response = await openai.createCompletion({
+    const response = await openai.chat.completions.create({
       model: MODEL_NAME,
-      prompt: openAIPrompt,
+      messages: [
+        { role: "system", content: OPEN_AI_PRIMING },
+        { role: "user", content: openAIPrompt }
+      ],
       max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
+      temperature: TEMPERATURE
     });
 
-    if (
-      response.data.choices !== undefined &&
-      response.data.choices.length > 0
-    ) {
+    if (response.choices !== undefined && response.choices.length > 0) {
       completion = postprocessSummary(
         diffResponse.data.files.map((file: any) => file.filename),
-        response.data.choices[0].text ?? "Error: couldn't generate summary",
+        response.choices[0].message.content ?? "Error: couldn't generate summary",
         diffMetadata
       );
     }
@@ -121,19 +116,19 @@ export async function summarizeCommits(
   pullNumber: number,
   repository: { owner: { login: string }; name: string },
   modifiedFilesSummaries: Record<string, string>
-): Promise<Array<[string, string]>> {
-  const commitSummaries: Array<[string, string]> = [];
+): Promise<Array<[ string, string ]>> {
+  const commitSummaries: Array<[ string, string ]> = [];
 
   const pull = await octokit.pulls.get({
     owner: repository.owner.login,
     repo: repository.name,
-    pull_number: pullNumber,
+    pull_number: pullNumber
   });
 
   const comments = await octokit.paginate(octokit.issues.listComments, {
     owner: repository.owner.login,
     repo: repository.name,
-    issue_number: pullNumber,
+    issue_number: pullNumber
   });
 
   let commitsSummarized = 0;
@@ -142,7 +137,7 @@ export async function summarizeCommits(
   const commits = await octokit.paginate(octokit.pulls.listCommits, {
     owner: repository.owner.login,
     repo: repository.name,
-    pull_number: pullNumber,
+    pull_number: pullNumber
   });
 
   const headCommit = pull.data.head.sha;
@@ -164,7 +159,7 @@ export async function summarizeCommits(
         .split("\n")
         .slice(1)
         .join("\n");
-      commitSummaries.push([commit.sha, summaryLines]);
+      commitSummaries.push([ commit.sha, summaryLines ]);
       continue;
     }
 
@@ -176,7 +171,7 @@ export async function summarizeCommits(
     const commitObject = await octokit.repos.getCommit({
       owner: repository.owner.login,
       repo: repository.name,
-      ref: commit.sha,
+      ref: commit.sha
     });
 
     if (commitObject.data.files === undefined) {
@@ -190,7 +185,7 @@ export async function summarizeCommits(
       owner: repository.owner.login,
       repo: repository.name,
       base: parent,
-      head: commit.sha,
+      head: commit.sha
     });
 
     let completion = "Error: couldn't generate summary";
@@ -199,13 +194,13 @@ export async function summarizeCommits(
         sha: commit.sha,
         issueNumber: pullNumber,
         repository,
-        commit: commitObject,
+        commit: commitObject
       });
     } else {
       completion = "Not generating summary for merge commits";
     }
 
-    commitSummaries.push([commit.sha, completion]);
+    commitSummaries.push([ commit.sha, completion ]);
 
     // Create a comment on the pull request with the names of the files that were modified in the commit
     const comment = `GPT summary of ${commit.sha}:\n\n${completion}`;
@@ -216,7 +211,7 @@ export async function summarizeCommits(
         repo: repository.name,
         issue_number: pullNumber,
         body: comment,
-        commit_id: commit.sha,
+        commit_id: commit.sha
       });
     }
     commitsSummarized++;
@@ -228,7 +223,7 @@ export async function summarizeCommits(
     }
   }
   const headCommitShaAndSummary = commitSummaries.find(
-    ([sha]) => sha === headCommit
+    ([ sha ]) => sha === headCommit
   );
   if (needsToSummarizeHead && headCommitShaAndSummary !== undefined) {
     let prSummary = "Error summarizing PR";
@@ -243,7 +238,7 @@ export async function summarizeCommits(
       repo: repository.name,
       issue_number: pullNumber,
       body: comment,
-      commit_id: headCommit,
+      commit_id: headCommit
     });
   }
   return commitSummaries;

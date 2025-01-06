@@ -14,7 +14,7 @@ Write a high level description. Do not repeat the commit summaries or the file s
 Write the most important bullet points. The list should not be more than a few bullet points.
 `;
 
-const linkRegex = /\[.*?\]\(https:\/\/github\.com\/.*?[a-zA-Z0-f]{40}\/(.*?)\)/;
+const linkRegex = /\[.*?]\(https:\/\/github\.com\/.*?[a-zA-Z0-f]{40}\/(.*?)\)/;
 
 function preprocessCommitMessage(commitMessage: string): string {
   let match = commitMessage.match(linkRegex);
@@ -38,7 +38,7 @@ export async function summarizePr(
   const filesString = Object.entries(fileSummaries)
     .map(([filename, summary]) => `File ${filename}:\n${summary}`)
     .join("\n");
-  const openAIPrompt = `${OPEN_AI_PROMPT}\n\nTHE COMMIT SUMMARIES:\n\`\`\`\n${commitsString}\n\`\`\`\n\nTHE FILE SUMMARIES:\n\`\`\`\n${filesString}\n\`\`\`\n\n
+  const openAIPrompt = `THE COMMIT SUMMARIES:\n\`\`\`\n${commitsString}\n\`\`\`\n\nTHE FILE SUMMARIES:\n\`\`\`\n${filesString}\n\`\`\`\n\n
   Reminder - write only the most important points. No more than a few bullet points.
   THE PULL REQUEST SUMMARY:\n`;
   console.log(`OpenAI for PR summary prompt:\n${openAIPrompt}`);
@@ -48,13 +48,16 @@ export async function summarizePr(
   }
 
   try {
-    const response = await openai.createCompletion({
+    const response = await openai.chat.completions.create({
       model: MODEL_NAME,
-      prompt: openAIPrompt,
+      messages: [
+        { role: "system", content: OPEN_AI_PROMPT },
+        { role: "user", content: openAIPrompt }
+      ],
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
     });
-    return response.data.choices[0].text ?? "Error: couldn't generate summary";
+    return response.choices[0].message.content ?? "Error: couldn't generate summary";
   } catch (error) {
     console.error(error);
     return "Error: couldn't generate summary";

@@ -1,4 +1,4 @@
-name: 'Pull request summarizer'
+name: 'AI Commit Summary'
 description: 'Write a comment about every commit in a pull request, every file diff, and summarize PR'
 inputs:
   repository:
@@ -17,10 +17,14 @@ inputs:
     description: "End date for the action"
     required: true
     default: "2025-01-06"
-
+  ignored:
+    description: 'List of ignored files'
+    required: false
+    default: ''
+    
 branding:
     icon: 'aperture'
     color: 'purple'
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'lib/index.js'
