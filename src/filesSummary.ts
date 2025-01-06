@@ -229,20 +229,24 @@ export async function getSummaryBetweenDates(
     const inputForAI = concatenatedMessages.slice(0, MAX_OPEN_AI_QUERY_LENGTH);
 
     // Summarize using OpenAI
-    const response = await openai.createCompletion({
+    // openai.completions
+    const completion = await openai.chat.completions.create({
       model: MODEL_NAME,
-      prompt: `${SHARED_PROMPT}\n\n${inputForAI}`,
+      // prompt: `${SHARED_PROMPT}\n\n${inputForAI}`,
+      messages: [
+        { role: "system", content: OPEN_AI_PROMPT },
+        { role: "user", content: `${SHARED_PROMPT}\n\n${inputForAI}` }],
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
     });
 
     if (
-      response.data &&
-      response.data.choices &&
-      response.data.choices.length > 0 &&
-      response.data.choices[0].text
+      completion &&
+      completion.choices &&
+      completion.choices.length > 0 &&
+      completion.choices[0].message.content
     ) {
-      return response.data.choices[0].text.trim();
+      return completion.choices[0].message.content.trim();
     } else {
       throw new Error("OpenAI response does not contain valid choices or text.");
     }
