@@ -243,10 +243,20 @@ export async function getSummaryBetweenDates(
       temperature: TEMPERATURE,
     });
 
-    return response.data.choices[0].text.trim();
+    if (
+      response.data &&
+      response.data.choices &&
+      response.data.choices.length > 0 &&
+      response.data.choices[0].text
+    ) {
+      return response.data.choices[0].text.trim();
+    } else {
+      throw new Error("OpenAI response does not contain valid choices or text.");
+    }
   } catch (error) {
     console.error("Error fetching or summarizing commits:", error);
     throw error;
   }
 }
+
 
