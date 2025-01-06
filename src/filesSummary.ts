@@ -211,3 +211,42 @@ export async function getFilesSummaries(
   }
   return result;
 }
+
+export async function getSummaryBetweenDates(
+  repo: PayloadRepository,
+  startDate: string,
+  endDate: string
+): Promise<string> {
+  const owner = repo.owner.login;
+  const repoName = repo.name;
+
+  try {
+    // Fetch commits between the dates
+    const commits = await octokit.rest.repos.listCommits({
+      owner,
+      repo: repoName,
+      since: startDate,
+      until: endDate,
+    });
+
+    const commitMessages = commits.data.map((commit) => preprocessCommitMessage(commit.commit.message));
+    const concatenatedMessages = commitMessages.join("\n");
+
+    // Ensure the content fits within OpenAI query limits
+    const inputForAI = concatenatedMessages.slice(0, MAX_OPEN_AI_QUERY_LENGTH);
+
+    // Summarize using OpenAI
+    const response = await openai.createCompletion({
+      model: MODEL_NAME,
+      prompt: `${SHARED_PROMPT}\n\n${inputForAI}`,
+      max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
+    });
+
+    return response.data.choices[0].text.trim();
+  } catch (error) {
+    console.error("Error fetching or summarizing commits:", error);
+    throw error;
+  }
+}
+

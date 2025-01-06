@@ -9,6 +9,15 @@ inputs:
     description: 'The GitHub token to use for authenticating the action'
     required: true
     default: ''
+  start_date:
+    description: "Start date for the action"
+    required: true
+    default: "2024-12-29"
+  end_date:
+    description: "End date for the action"
+    required: true
+    default: "2025-01-06"
+
 branding:
     icon: 'aperture'
     color: 'purple'
